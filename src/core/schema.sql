@@ -20,3 +20,68 @@ ON cards (group_id, clean_name);
 
 CREATE INDEX IF NOT EXISTS idx_cards_group_type
 ON cards (group_id, product_type);
+
+-- ----------------------------
+-- Pricing (marketPrice-only, variant-aware)
+-- ----------------------------
+
+CREATE TABLE IF NOT EXISTS prices_latest (
+  product_id   INTEGER NOT NULL REFERENCES cards(product_id),
+  sub_type     TEXT NOT NULL,               -- e.g., Normal / Holofoil / Reverse Holofoil
+  market_price REAL,
+  updated_at   TEXT NOT NULL,               -- UTC timestamp of last refresh
+  PRIMARY KEY (product_id, sub_type)
+);
+
+CREATE TABLE IF NOT EXISTS prices_history (
+  product_id    INTEGER NOT NULL REFERENCES cards(product_id),
+  sub_type      TEXT NOT NULL,
+  snapshot_date TEXT NOT NULL,              -- UTC date YYYY-MM-DD (one snapshot per day)
+  market_price  REAL,
+  captured_at   TEXT NOT NULL,              -- UTC timestamp when captured
+  PRIMARY KEY (product_id, sub_type, snapshot_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prices_hist_series_date
+ON prices_history (product_id, sub_type, snapshot_date);
+
+-- ----------------------------
+-- Trends (latest snapshot only)
+-- ----------------------------
+
+CREATE TABLE IF NOT EXISTS trends_latest (
+  product_id      INTEGER NOT NULL REFERENCES cards(product_id),
+  sub_type        TEXT NOT NULL,
+  snapshot_date   TEXT NOT NULL,            -- date of the "today" point used
+  market_price    REAL,
+  market_price_7d REAL,
+  market_price_30d REAL,
+  pct_change_7d   REAL,
+  pct_change_30d  REAL,
+  computed_at     TEXT NOT NULL,
+  PRIMARY KEY (product_id, sub_type)
+);
+
+-- ----------------------------
+-- Run log (operational visibility)
+-- ----------------------------
+
+CREATE TABLE IF NOT EXISTS run_log (
+  run_id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_name              TEXT NOT NULL,
+  snapshot_date         TEXT NOT NULL,
+  started_at            TEXT NOT NULL,
+  finished_at           TEXT,
+  status                TEXT NOT NULL,      -- running / success / failed
+  groups_count          INTEGER DEFAULT 0,
+  price_rows_fetched    INTEGER DEFAULT 0,
+  price_rows_kept       INTEGER DEFAULT 0,
+  latest_upserts        INTEGER DEFAULT 0,
+  history_inserts       INTEGER DEFAULT 0,
+  trends_upserts        INTEGER DEFAULT 0,
+  notes                 TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_run_log_job_date
+ON run_log (job_name, snapshot_date);
+
