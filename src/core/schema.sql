@@ -85,3 +85,31 @@ CREATE TABLE IF NOT EXISTS run_log (
 CREATE INDEX IF NOT EXISTS idx_run_log_job_date
 ON run_log (job_name, snapshot_date);
 
+
+
+
+-- OCR run log (one row per uploaded image processed)
+CREATE TABLE IF NOT EXISTS ocr_runs (
+  run_id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at        TEXT NOT NULL,          -- ISO8601 UTC timestamp
+  provider          TEXT NOT NULL,          -- "google_vision"
+  filename          TEXT,
+  image_sha256      TEXT NOT NULL,
+  image_bytes       INTEGER NOT NULL,
+  status            TEXT NOT NULL,          -- "success" | "error"
+  elapsed_ms        INTEGER,
+  error_message     TEXT
+);
+
+-- OCR extracted + parsed data (one row per run)
+CREATE TABLE IF NOT EXISTS ocr_results (
+  run_id                 INTEGER PRIMARY KEY,
+  full_text              TEXT NOT NULL,
+  collector_number_raw   TEXT,
+  collector_number_norm  TEXT,
+  name_hint              TEXT,
+  FOREIGN KEY(run_id) REFERENCES ocr_runs(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_ocr_runs_created_at ON ocr_runs(created_at);
+CREATE INDEX IF NOT EXISTS idx_ocr_results_collector_norm ON ocr_results(collector_number_norm);

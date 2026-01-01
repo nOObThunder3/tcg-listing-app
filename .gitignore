@@ -33,3 +33,7 @@ data/
 # ---- Environment variables / secrets ----
 .env
 .env.*
+
+# Secrets (do not commit)
+**/google-sa.json
+**/*service_account*.json
